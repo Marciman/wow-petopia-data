@@ -1,56 +1,41 @@
 name: Update Pet Data
 on:
-  workflow_dispatch: # Nur manueller Trigger zum Testen
+  workflow_dispatch:
 
 jobs:
   update_pets:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     
     steps:
-    # 1. Repository auschecken
     - uses: actions/checkout@v4
-
-    # 2. Python-Umgebung
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
-    # 3. Debug: Systeminfo anzeigen
-    - name: Debug info
-      run: |
-        echo "Python: $(python --version)"
-        echo "Pip: $(pip --version)"
-        echo "Dateistruktur:"
-        ls -la
-
-    # 4. Abhängigkeiten installieren
-    - name: Install packages
+        
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install beautifulsoup4 requests
-
-    # 5. Scraping mit Debug
+        
     - name: Scrape data
       run: |
-        python petopia_scraper.py || echo "Scraping fehlgeschlagen"
-        [ -f "petopia_data.json" ] || exit 1
-        echo "Erste 3 Pets:"
-        jq '.[] | .[0:3]' petopia_data.json
-
-    # 6. Lua-Konvertierung
+        python petopia_scraper.py
+        echo "Scraped data:"
+        jq '.[] | length' petopia_data.json
+        [ $(jq '[.[] | length] | add' petopia_data.json) -gt 0 ] || exit 1
+        
     - name: Generate Lua
       run: |
-        python json_to_lua.py || echo "Konvertierung fehlgeschlagen"
-        [ -f "HRT_Data.lua" ] || exit 1
-        echo "Lua-Datei Kopf:"
-        head -n 20 HRT_Data.lua
-
-    # 7. Änderungen pushen (nur wenn Daten vorhanden)
-    - name: Commit and push
-      if: success()
+        python json_to_lua.py
+        echo "First pet in Lua:"
+        head -n 15 HRT_Data.lua
+        
+    - name: Commit changes
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
@@ -58,5 +43,5 @@ jobs:
         git config --global user.email "actions@github.com"
         git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
         git add .
-        git diff --quiet && git diff --cached --quiet || git commit -m "Data update $(date +'%Y-%m-%d')"
+        git diff --quiet && git diff --cached --quiet || git commit -m "Data update $(date +'%Y-%m-%d %H:%M')"
         git push origin main
