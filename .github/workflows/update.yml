@@ -45,3 +45,10 @@ jobs:
         git add .
         git commit -m "Automatisches Daten-Update $(date +'%Y-%m-%d')" || echo "Keine Änderungen"
         git push origin main
+
+- name: Scrape and convert
+  run: |
+    python3 -m pip install --upgrade pip
+    pip3 install beautifulsoup4 requests
+    python3 petopia_scraper.py
+    python3 json_to_lua.py
