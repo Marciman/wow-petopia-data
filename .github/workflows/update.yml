@@ -27,11 +27,15 @@ jobs:
         pip install beautifulsoup4 requests
 
     # 4. Skripte ausführen
-    - name: Run scraping
-      run: python petopia_scraper.py
+   - name: Run scraping
+  run: |
+    python petopia_scraper.py
+    [ -s petopia_data.json ] || exit 1  # Verhindert leere JSON
 
-    - name: Convert to Lua
-      run: python json_to_lua.py
+- name: Convert to Lua
+  run: |
+    python json_to_lua.py
+    [ -s HRT_Data.lua ] || exit 1  # Verhindert leere Lua
 
     # 5. Ergebnisse validieren
     - name: Check output
