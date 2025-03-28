@@ -3,34 +3,47 @@ from bs4 import BeautifulSoup
 import json
 
 BASE_URL = "https://www.wow-petopia.com/"
-CATEGORIES = ["collector", "rare", "looks", "elite"]
 
 def scrape_pets():
-    all_pets = []
-    
-    for category in CATEGORIES:
+    categories = {
+        "collector": [],
+        "rare": [],
+        "looks": [],
+        "elite": []
+    }
+
+    for category in categories.keys():
         url = f"{BASE_URL}browse.php?id={category}"
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        print(f"Scraping {url}...")
         
-        for pet in soup.select('.petlisting'):
-            pet_data = {
-                "name": pet.select_one('.petname a').text.strip(),
-                "category": category,
-                "family": pet.select_one('.family').text.strip(),
-                "zone": pet.select_one('.location').text.strip(),
-                "image": BASE_URL + pet.select_one('.petimage img')['src'].lstrip('/')
-            }
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
             
-            if category == "elite":
-                spawn = pet.select_one('.spawntime')
-                pet_data["spawn_time"] = spawn.text.strip() if spawn else "N/A"
+            soup = BeautifulSoup(response.text, 'html.parser')
+            pets = soup.select('.petlisting')
             
-            all_pets.append(pet_data)
+            for pet in pets:
+                pet_data = {
+                    "name": pet.select_one('.petname a').get_text(strip=True),
+                    "family": pet.select_one('.family').get_text(strip=True),
+                    "zone": pet.select_one('.location').get_text(strip=True),
+                    "image": BASE_URL + pet.select_one('.petimage img')['src'].lstrip('/')
+                }
+                
+                if category == "elite":
+                    spawn = pet.select_one('.spawntime')
+                    pet_data["spawn_time"] = spawn.get_text(strip=True) if spawn else "N/A"
+                
+                categories[category].append(pet_data)
+                
+        except Exception as e:
+            print(f"Error scraping {category}: {str(e)}")
     
-    return all_pets
+    return categories
 
 if __name__ == "__main__":
-    pets = scrape_pets()
+    pet_data = scrape_pets()
     with open('petopia_data.json', 'w', encoding='utf-8') as f:
-        json.dump(pets, f, ensure_ascii=False, indent=2)
+        json.dump(pet_data, f, ensure_ascii=False, indent=2)
+    print(f"Successfully saved {sum(len(v) for v in pet_data.values())} pets")
