@@ -1,51 +1,55 @@
 name: Update Pet Data
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Sonntags um Mitternacht UTC
+    - cron: '0 0 * * 0'  # Jeden Sonntag um Mitternacht UTC
   workflow_dispatch:     # Manueller Trigger
 
 jobs:
   update_pets:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write    # Für git push benötigt
     
     steps:
     # 1. Repository auschecken
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0   # Vollständige Git-Historie
 
-    # 2. Python einrichten (ohne dependencies-caching)
+    # 2. Python einrichten
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    # 3. Abhängigkeiten explizit installieren
-    - name: Install packages
+    # 3. Abhängigkeiten installieren
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install beautifulsoup4 requests
 
-    # 4. Skripte ausführen
-   - name: Run scraping
-  run: |
-    python petopia_scraper.py
-    [ -s petopia_data.json ] || exit 1  # Verhindert leere JSON
+    # 4. Daten scrapen
+    - name: Scrape pet data
+      run: python petopia_scraper.py
 
-- name: Convert to Lua
-  run: |
-    python json_to_lua.py
-    [ -s HRT_Data.lua ] || exit 1  # Verhindert leere Lua
+    # 5. Lua-Datei generieren
+    - name: Generate Lua data
+      run: python json_to_lua.py
 
-    # 5. Ergebnisse validieren
-    - name: Check output
+    # 6. Ergebnisse validieren
+    - name: Validate output
       run: |
-        [ -f "petopia_data.json" ] || exit 1
-        [ -f "HRT_Data.lua" ] || exit 1
-        echo "Files created successfully"
+        if [ ! -s "petopia_data.json" ]; then
+          echo "Error: petopia_data.json is empty!"
+          exit 1
+        fi
+        if [ ! -s "HRT_Data.lua" ]; then
+          echo "Error: HRT_Data.lua is empty!"
+          exit 1
+        fi
 
-    # 6. Änderungen pushen
-    - name: Commit and push
+    # 7. Änderungen pushen
+    - name: Commit and push changes
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
