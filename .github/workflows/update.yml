@@ -31,10 +31,18 @@ jobs:
         python json_to_lua.py
     
     # 5. Änderungen hochladen
-    - name: Commit and push
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git add .
-        git commit -m "Automatisches Daten-Update $(date +'%Y-%m-%d')" || echo "Keine Änderungen"
-        git push
+   - name: Commit and push
+  env:
+    GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Verwendet das Secret
+  run: |
+    # Git-Identität setzen
+    git config --global user.name "GitHub Actions"
+    git config --global user.email "actions@github.com"
+    
+    # Authentifizierung vorbereiten
+    git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
+    
+    # Änderungen pushen
+    git add .
+    git commit -m "Automatisches Update $(date +'%Y-%m-%d')" || echo "Keine Änderungen"
+    git push origin main
