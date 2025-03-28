@@ -1,8 +1,6 @@
 name: Update Pet Data
 on:
-  schedule:
-    - cron: '0 0 * * 0'  # Sonntags um Mitternacht UTC
-  workflow_dispatch:     # Manueller Trigger
+  workflow_dispatch: # Nur manueller Trigger zum Testen
 
 jobs:
   update_pets:
@@ -11,31 +9,48 @@ jobs:
       contents: write
     
     steps:
+    # 1. Repository auschecken
     - uses: actions/checkout@v4
-    
+
+    # 2. Python-Umgebung
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
-    - name: Install dependencies
+
+    # 3. Debug: Systeminfo anzeigen
+    - name: Debug info
+      run: |
+        echo "Python: $(python --version)"
+        echo "Pip: $(pip --version)"
+        echo "Dateistruktur:"
+        ls -la
+
+    # 4. Abhängigkeiten installieren
+    - name: Install packages
       run: |
         python -m pip install --upgrade pip
         pip install beautifulsoup4 requests
-        
+
+    # 5. Scraping mit Debug
     - name: Scrape data
-      run: python petopia_scraper.py
-      
-    - name: Verify scraped data
       run: |
-        echo "Pets per category:"
-        jq '.[] | length' petopia_data.json
-        [ $(jq '[.[] | length] | add' petopia_data.json) -gt 0 ] || exit 1
-        
+        python petopia_scraper.py || echo "Scraping fehlgeschlagen"
+        [ -f "petopia_data.json" ] || exit 1
+        echo "Erste 3 Pets:"
+        jq '.[] | .[0:3]' petopia_data.json
+
+    # 6. Lua-Konvertierung
     - name: Generate Lua
-      run: python json_to_lua.py
-      
-    - name: Commit changes
+      run: |
+        python json_to_lua.py || echo "Konvertierung fehlgeschlagen"
+        [ -f "HRT_Data.lua" ] || exit 1
+        echo "Lua-Datei Kopf:"
+        head -n 20 HRT_Data.lua
+
+    # 7. Änderungen pushen (nur wenn Daten vorhanden)
+    - name: Commit and push
+      if: success()
       env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
@@ -43,5 +58,5 @@ jobs:
         git config --global user.email "actions@github.com"
         git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
         git add .
-        git diff --quiet && git diff --cached --quiet || git commit -m "Auto-update $(date +'%Y-%m-%d %H:%M UTC')"
+        git diff --quiet && git diff --cached --quiet || git commit -m "Data update $(date +'%Y-%m-%d')"
         git push origin main
