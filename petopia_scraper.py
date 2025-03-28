@@ -9,38 +9,38 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 def scrape_category(category):
     url = f"{BASE_URL}browse.php?id={category}"
     print(f"Scraping {url}...")
-    
+
     try:
         response = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
         response.raise_for_status()
-        
+
         soup = BeautifulSoup(response.text, 'html.parser')
         pets = []
-        
-        for pet in soup.select('.petlisting'):
-            name = pet.select_one('.petname a')
-            family = pet.select_one('.family')
-            location = pet.select_one('.location')
-            image = pet.select_one('.petimage img')
-            
-            if not all([name, family, location, image]):
+
+        for row in soup.select('tr'):
+            name_cell = row.select_one("td.name .pettablename a")
+            zone_cell = row.select_one("td.zone")
+
+            if not all([name_cell, zone_cell]):
                 continue
-                
+
+            name = name_cell.text.strip()
+            zone = zone_cell.text.strip()
+
             pet_data = {
-                "name": name.text.strip(),
-                "family": family.text.strip(),
-                "zone": location.text.strip(),
-                "image": urljoin(BASE_URL, image['src'])
+                "name": name,
+                "family": "Unknown",  # Optional: später ergänzen
+                "zone": zone,
+                "image": urljoin(BASE_URL, name_cell['href'])  # Link zur Detailseite
             }
-            
+
             if category == "elite":
-                spawn = pet.select_one('.spawntime')
-                pet_data["spawn_time"] = spawn.text.strip() if spawn else "N/A"
-            
+                pet_data["spawn_time"] = "N/A"  # Optional: kann verbessert werden
+
             pets.append(pet_data)
-        
+
         return pets
-    
+
     except Exception as e:
         print(f"Error scraping {category}: {str(e)}")
         return []
@@ -52,10 +52,10 @@ def main():
         "looks": scrape_category("looks"),
         "elite": scrape_category("elite")
     }
-    
+
     with open('petopia_data.json', 'w', encoding='utf-8') as f:
         json.dump(categories, f, ensure_ascii=False, indent=2)
-    
+
     total_pets = sum(len(pets) for pets in categories.values())
     print(f"Successfully scraped {total_pets} pets")
 
