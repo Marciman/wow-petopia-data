@@ -2,26 +2,27 @@ import json
 
 def convert_to_lua():
     with open('petopia_data.json', 'r', encoding='utf-8') as f:
-        pets = json.load(f)
+        data = json.load(f)
     
     lua_output = """-- Auto-generated pet data
 HRT_Data = {
     pets = {
 """
     
-    for pet in pets:
-        lua_output += f"""        {{
+    for category, pets in data.items():
+        for pet in pets:
+            lua_output += f"""        {{
             name = "{pet['name']}",
-            category = "{pet['category']}",
+            category = "{category}",
             family = "{pet['family']}",
             zone = "{pet['zone']}",
             image = "{pet['image']}","""
-        
-        if 'spawn_time' in pet:
-            lua_output += f"""
+            
+            if 'spawn_time' in pet:
+                lua_output += f"""
             spawn_time = "{pet['spawn_time']}","""
-        
-        lua_output += """
+            
+            lua_output += """
         },
 """
     
