@@ -1,8 +1,5 @@
--- Automatisch generierte Pet-Daten
+-- Auto-generated pet data
 HRT_Data = {
-    categories = {
-        "collector", "rare", "looks", "elite"
-    },
     pets = {
     }
 }
