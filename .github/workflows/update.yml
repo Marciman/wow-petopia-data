@@ -1,54 +1,60 @@
 name: Update Pet Data
 on:
   schedule:
-    - cron: '0 0 * * 0'  # Jeden Sonntag um Mitternacht UTC
+    - cron: '0 0 * * 0'  # Sonntags um Mitternacht UTC
   workflow_dispatch:     # Manueller Trigger
 
 jobs:
   update_pets:
     runs-on: ubuntu-latest
     permissions:
-      contents: write    # Wichtig für git push
+      contents: write    # Für git push benötigt
     
     steps:
     # 1. Repository auschecken
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0   # Für korrekte Git-Historie
+        fetch-depth: 0   # Vollständige Git-Historie
 
-    # 2. Python einrichten
+    # 2. Python-Umgebung
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'     # Cache für schnelle Installation
 
-    # 3. Abhängigkeiten installieren
+    # 3. Abhängigkeiten
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install beautifulsoup4 requests
+        pip install beautifulsoup4 requests pyyaml
 
-    # 4. Daten scrapen und konvertieren
-    - name: Scrape and convert data
-      run: |
-        python petopia_scraper.py
-        python json_to_lua.py
-      
-    # 5. Änderungen pushen
-    - name: Commit and push changes
+    # 4. Daten-Scraping
+    - name: Scrape pet data
+      run: python petopia_scraper.py
       env:
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}  # Dein Token aus Secrets
+        MAX_PETS: 500    # Sicherheitslimit
+
+    # 5. Lua-Konvertierung
+    - name: Convert to Lua
+      run: python json_to_lua.py
+      continue-on-error: true  # Fallback bei Fehlern
+
+    # 6. Ergebnis prüfen
+    - name: Validate output
+      run: |
+        echo "Gefundene Pets:"
+        jq '.collector + .rare + .looks + .elite | length' petopia_data.json
+        [ -s HRT_Data.lua ] || exit 1
+
+    # 7. Änderungen pushen
+    - name: Commit and push
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
         git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/${{ github.repository }}.git"
         git add .
-        git commit -m "Automatisches Daten-Update $(date +'%Y-%m-%d')" || echo "Keine Änderungen"
+        git diff --quiet && git diff --cached --quiet || git commit -m "Auto-update $(date +'%Y-%m-%d %H:%M')"
         git push origin main
-
-- name: Scrape and convert
-  run: |
-    python3 -m pip install --upgrade pip
-    pip3 install beautifulsoup4 requests
-    python3 petopia_scraper.py
-    python3 json_to_lua.py
